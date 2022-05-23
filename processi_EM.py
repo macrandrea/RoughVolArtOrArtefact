@@ -43,7 +43,7 @@ def gbm_expOU(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=-0.7,r=0):
     sigma=np.ones(N)
     y=np.ones(N)
     y[0]=0
-    sigma[0]=1
+    sigma[0]=1/100
     S[0]=s0
     np.random.seed(seed)
     dt=T/N
@@ -53,8 +53,8 @@ def gbm_expOU(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=-0.7,r=0):
         epsilon1=np.random.randn()*a[0,0]
         epsilon2=np.random.randn()*a[1, 0]+ np.random.randn() * a[1, 1 ]       
         S[i] = S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1
-        y[i] = y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon2
-        sigma[i] = np.exp(y[i])
+        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon2)
+        sigma[i] = np.exp(y[i])/100
     return [S,sigma]
 
 def generate_heston_paths(S, T, r, kappa, theta, v_0, rho, xi, 
@@ -123,21 +123,33 @@ def campionamento(x,N,step):
 
 def calcolaRendimenti(s,N):
     l=np.zeros(N)
-    for i in range(1,N):
-        l[i]=np.abs(log(s[i])-log(s[i-1]))
+    for i in range(0,N):
+        l[i]=(log(s[i])-log(s[i-1]))**2
     return l
 
-def realVol(x,step,N):
+def realVol(x,step,N): #assume che entri in log quadrato
     y=np.zeros(np.int8(N/step))
     iter=step
     iter2=0
-    for i in range(1,len(y)):
-        y[i]=sum(x[iter2:iter])#*np.sqrt(78)
-        iter2=iter-step
+    for i in range(0,len(y)):
+        y[i]=sum(x[iter2:iter])
+        iter2=iter#-step
         iter =iter+step
-    return y
+    for i in range(0,len(y)):
+        y[i]=np.sqrt(y[i])*np.sqrt(78)
+    return y[1:]
 
-#def calc_W():
-#    def ls():
-#        return np.norm(W-T)^2 #griglia di p e prendi il minimo per norma quadrata
-#    w=fsolve(ls)
+def calcola_W(s,T,stepK,stepL):
+    nom=0
+    iter=stepK
+    iter2=0
+    while(iter!=T):
+        nom += sum(np.abs(s[iter2:iter])**2)*stepK
+        iter2=iter-stepK
+        iter =iter+stepK  
+    while (iter!=T):
+          
+    #    def ls():
+    #        return np.norm(W-T)^2 #griglia di p e prendi il minimo per norma quadrata
+    #w=fsolve(ls) 
+    return W
