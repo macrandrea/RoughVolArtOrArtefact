@@ -239,9 +239,9 @@ def calcW(f,K,p):
     for j in range(1,len(w)):
         diff[j-1]=abs(log(f[j])-log(f[j-1]))
     for i in range(len(w)):
-        num[i]=abs(log(f[iter])-log(f[iter2]))**p*(iter-iter2) #
-        den[i]=sum(diff[iter2:iter])**p
-        w[i]  = (num[i]/den[i])
+        num[i]=abs(log(f[iter])-log(f[iter2]))**p *(K)#
+        den[i]=sum(diff[iter2:iter])**p#*#(iter-iter2)
+        w[i]  = den[i]/num[i]#(num[i]/den[i])
         iter2=iter
         iter+=K
         if iter2>i*K:
