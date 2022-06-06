@@ -15,9 +15,9 @@ def RV(o,step):
     for i in range(len(o)):
         l[i]=np.log(o[i])
     for i in range(1,len(o)):
-        r[i-1]=np.sqrt(log(l[i]-l[i-1])**2)
+        r[i-1]=np.sqrt((log(l[i])-log(l[i-1]))**2)
     for i in range(0,len(r)):
-        s[i]=(np.std(r[i:i+2])*np.sqrt(step))
+        s[i]=(np.sum(r[i:i+2])*np.sqrt(step))
     return s[:-2]
 
 def RV_5min(o,step,N):
@@ -44,13 +44,13 @@ def gbm_mod(s0,T,N,seed=457778):#N=23400
     cov=np.matrix([[1, -0.79],[-0.79, 1]])
     a  =np.linalg.cholesky(cov)
     for i in range(1,len(S)):
-        epsilon1=np.random.randn()*a[0,0]
-        epsilon2=np.random.randn()*a[1, 0]+ np.random.randn() * a[1, 1 ] 
+        epsilon1=np.random.randn()
+        epsilon2=np.random.randn()#*a[1, 0]+ np.random.randn() * a[1, 1 ] 
         sigma[i] = np.abs(sigma[i-1]+(epsilon2*np.sqrt(dt)))
         S[i]=S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1
     return [S,sigma]
 
-def gbm_expOU(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=-0.7,r=0):
+def gbm_expOU(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=0,r=0):
     ''' corretta''' #giusto
     S=np.zeros(N)
     sigma=np.ones(N)
@@ -66,31 +66,49 @@ def gbm_expOU(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=-0.7,r=0):
         epsilon1=np.random.randn()*a[0,0]
         epsilon2=np.random.randn()*a[1, 0]+ np.random.randn() * a[1, 1 ]       
         S[i] = S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1
-        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon2)
+        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon1)
         sigma[i] = np.exp(y[i])/100
     return [S,sigma]
 
-def gbm_rough(s0,T,N,h,seed=457778,gamma=1,alpha=1,theta=1,rho=-0.7,r=0):
-    ''' corretta''' #giusto
-    S=np.zeros(N)
-    sigma=np.ones(N)
-    y=np.ones(N)
-    y[0]=0
-    sigma[0]=1/100
-    S[0]=s0
+def rough(N,h,seed=457778):
     np.random.seed(seed)
-    dt=T/N
-    cov=np.matrix([[1, rho],[rho, 1]])
+    y=np.empty(N)
+    s=np.empty(N)
+    s[0]=100
+    sigma=np.empty(N)
+    sigma[0]=0.01
+    dt=1/N
+    cov=np.matrix([[1, -0.79],[-0.79, 1]])
     a  =np.linalg.cholesky(cov)
-    for i in range(1,len(S)):
-        f = FBM(n=1, hurst=h, length=1, method='cholesky')
-        epsilon1=np.random.randn()
-        epsilon2=f.fgn()*a[1, 0]+ f.fgn() * a[1, 1 ]       
-        S[i] = S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1
-        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon2)
-        sigma[i] = np.exp(y[i])/100
-    return [S,sigma]
+    h1=fbm(n=N, hurst=h, length=1, method='daviesharte')
+    h2=fbm(n=N, hurst=0.5, length=1, method='daviesharte')
+    for i in range(1,N):
+        #y[i]    = y[i-1] -1*y[i-1]*dt+ 1*np.sqrt(dt)*h1[i-1]
+        sigma[i]= np.exp(h1[i])/100#'''*a[1, 0]+h1[i] * a[1, 1 ]''')/100
+        s[i]    = s[i-1]+s[i-1]*sigma[i]*np.sqrt(dt)*(np.random.randn())
+    return [s,sigma]
 
+#def gbm_rough(s0,T,N,h,seed=457778,gamma=1,alpha=1,theta=1,rho=0.0,r=0):
+#    ''' corretta''' #giusto
+#    S=np.zeros(N)
+#    sigma=np.ones(N)
+#    y=np.ones(N)
+#    y[0]=0
+#    sigma[0]=1/100
+#    S[0]=s0
+#    np.random.seed(seed)
+#    dt=T/N
+#    cov=np.matrix([[1, rho],[rho, 1]])
+#    a  =np.linalg.cholesky(cov)
+#    for i in range(1,len(S)):
+#        f = FBM(n=1, hurst=h, length=1, method='cholesky')
+#        epsilon1=np.random.randn()
+#        epsilon2=f.fgn()*a[1, 0]+ f.fgn() * a[1, 1 ]       
+#        S[i] = S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1
+#        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon2)
+#        sigma[i] = np.exp(y[i])/100
+#    return [S,sigma]
+#
 def generate_heston_paths(S, T, r, kappa, theta, v_0, rho, xi, 
                           steps, Npaths, return_vol=False):
     dt = T/steps
@@ -195,18 +213,46 @@ def W_1(s,T,K,p):
     W    =np.zeros(np.int64(T/K)+1)
     num  =np.zeros(np.int64(T/K)+1)
     den  =np.zeros(np.int64(T/K)+1)
-    diff =np.zeros(len(s)-2)
+    diff =np.zeros(len(s))
     iter1=0
     iter2=K
     for j in range(1,len(diff)):
-        diff[j-1]= s[j]-s[j-1]
+        diff[j-1]= log(s[j])-log(s[j-1])
     for i in range(1,len(W)):
-        num[i] =np.abs(s[iter2]-s[iter1])**p
-        den[i] =sum(np.abs(diff[iter1:iter2])**p)*T/K
+        num[i] =np.abs(log(s[iter2])-log(s[iter1]))**p
+        den[i] =sum(np.abs(diff[iter1:iter2])**p)*K
         W[i]   =num[i]/den[i]
         iter1=iter2
         iter2+=K
+        if iter1==(len(diff)-1):
+            return sum(W)
     return sum(W)
+
+
+def calcW(f,K,p):
+    diff=np.zeros(len(f))
+    w   =np.zeros(int(len(f)/K)+1)
+    num =np.zeros(int(len(f)/K)+1)
+    den =np.zeros(int(len(f)/K)+1)
+    iter=K
+    iter2=0
+    for j in range(1,len(w)):
+        diff[j-1]=abs(log(f[j])-log(f[j-1]))
+    for i in range(len(w)):
+        num[i]=abs(log(f[iter])-log(f[iter2]))**p*(iter-iter2) #
+        den[i]=sum(diff[iter2:iter])**p
+        w[i]  = (num[i]/den[i])
+        iter2=iter
+        iter+=K
+        if iter2>i*K:
+            return sum(w)
+        #if (iter>=len(w)):
+        #    iter=iter-(iter-len(w))-1
+        #elif (iter>=i*K):        
+        #    return sum(w)                                                                        
+        #if iter2>=(len(diff)-1):
+        #    return sum(w)
+    return sum(w)
 '''
     def W(s,T,K,p):
     W    =np.zeros(len(s))#np.int64(T/K))
