@@ -11,13 +11,13 @@ from fbm import FBM
 def RV(o,step):
     r=np.zeros(len(o)+1)
     s=np.zeros(len(o)+1)
-    l=np.empty(step)
-    for i in range(len(o)):
-        l[i]=np.log(o[i])
+    #l=np.empty(step)
+    #for i in range(len(o)):
+    #    l[i]=np.log(o[i])
     for i in range(1,len(o)):
-        r[i-1]=np.sqrt((log(l[i])-log(l[i-1]))**2)
+        r[i-1]=np.sqrt((log(o[i])-log(o[i-1]))**2)
     for i in range(0,len(r)):
-        s[i]=(np.sum(r[i:i+2])*np.sqrt(step))
+        s[i]=np.sum(r[i:i+1])*np.sqrt(step)
     return s[:-2]
 
 def RV_5min(o,step,N):
@@ -33,6 +33,30 @@ def RV_5min(o,step,N):
         #if s[i]<1e-4 or s[i]>0.6:
         #    s[i]=s[i-1]
     return s
+
+def gbm_mod_adj(s0,T,N,seed=457778):#N=23400
+    S=np.zeros(N)
+    sigma=np.ones(N)
+    sigma[0]=0.2
+    S[0]=s0
+    #omeghino=np.zeros(N)
+    np.random.seed(seed)
+    dt=T/N
+    cov=np.matrix([[1, -0.79],[-0.79, 1]])
+    a  =np.linalg.cholesky(cov)
+    for i in range(1,len(S)):
+        epsilon1=np.random.randn()
+        epsilon2=np.random.randn()#*a[1, 0]+ np.random.randn() * a[1, 1 ] 
+        sigma[i] = np.abs(sigma[i-1]+(epsilon2*np.sqrt(dt)))
+        #omeghino[i]= (0.05**2)*np.sqrt(0.01*sigma[i])#0.01*(0.05**2*np.sqrt(np.exp(sigma[i]))*np.sqrt(dt)) #(0.05**2)*(0.01*np.sqrt(np.exp(sigma[i])))**4
+        #1/N*np.sqrt(sum(0.01*np.exp(sigma))**4))
+        eps=np.random.normal(scale=np.sqrt(sigma[i]))
+        S[i]=(S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1)+eps
+    #for i in range(1,len(S)):
+        
+        
+        
+    return [S,sigma]
 
 def gbm_mod(s0,T,N,seed=457778):#N=23400
     S=np.zeros(N)
@@ -69,6 +93,53 @@ def gbm_expOU(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=0,r=0):
         y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon1)
         sigma[i] = np.exp(y[i])/100
     return [S,sigma]
+
+def gbm_expOU_adj(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=0,r=0):
+    ''' corretta''' #giusto
+    S=np.zeros(N)
+    omeghino=np.zeros(N)
+    sigma=np.ones(N)
+    y=np.ones(N)
+    y[0]=0
+    sigma[0]=1/100
+    S[0]=s0
+    np.random.seed(seed)
+    dt=T/N
+    cov=np.matrix([[1, rho],[rho, 1]])
+    a  =np.linalg.cholesky(cov)
+    for i in range(1,len(S)):
+        epsilon1=np.random.randn()*a[0,0]
+        epsilon2=np.random.randn()*a[1, 0]+ np.random.randn() * a[1, 1 ]       
+        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon1)
+        sigma[i] = np.exp(y[i])/100
+        eps=np.random.normal(scale=np.sqrt(sigma[i]))
+        S[i] = (S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1)+eps
+        
+        #omeghino[i]= (0.05**2)*np.sqrt(0.01*np.sqrt(sigma[i])**4)#0.01*(0.05**2*np.sqrt(np.exp(sigma[i]))*np.sqrt(dt)) #(0.05**2)*(0.01*np.sqrt(np.exp(sigma[i])))**4
+        #1/N*np.sqrt(sum(0.01*np.exp(sigma))**4))
+    return [S,sigma]
+
+
+def gbm_expOUsoloVol(s0,T,N,seed=457778,gamma=1,alpha=1,theta=1,rho=0,r=0):
+    ''' corretta''' #giusto
+    S=np.zeros(N)
+    sigma=np.ones(N)
+    y=np.ones(N)
+    y[0]=0
+    sigma[0]=1/100
+    S[0]=s0
+    np.random.seed(seed)
+    dt=T/N
+    cov=np.matrix([[1, rho],[rho, 1]])
+    a  =np.linalg.cholesky(cov)
+    for i in range(1,len(S)):
+        epsilon1=np.random.randn()*a[0,0]
+        epsilon2=np.random.randn()*a[1, 0]+ np.random.randn() * a[1, 1 ]       
+        S[i] = S[i-1]+S[i-1]*sigma[i-1]*np.sqrt(dt)*epsilon1
+        y[i] = (y[i-1] -gamma*y[i-1]*dt+ theta*np.sqrt(dt)*epsilon1)
+        sigma[i] = np.exp(y[i])/100
+    return sigma    
+
 
 def rough(N,h,seed=457778):
     np.random.seed(seed)
@@ -253,6 +324,12 @@ def calcW(f,K,p):
         #if iter2>=(len(diff)-1):
         #    return sum(w)
     return sum(w)
+
+
+
+
+def flatten(xss):
+    return [x for xs in xss for x in xs]
 '''
     def W(s,T,K,p):
     W    =np.zeros(len(s))#np.int64(T/K))
